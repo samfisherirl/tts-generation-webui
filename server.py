@@ -198,10 +198,37 @@ if gradio_interface_options["auth"] is not None:
 print_pretty_options(gradio_interface_options)
 
 
-def start_server():
-    demo.queue(
-        concurrency_count=gradio_interface_options.get("concurrency_count", 5),
-    ).launch(**gradio_interface_options)
+def find_available_port(initial_port=7860, max_port=9000):
+    """Finds an available port starting from the initial_port."""
+    # Use context manager to ensure that socket resources are released
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as temp_socket:
+        for port in range(initial_port, max_port + 1):
+            try:
+                temp_socket.bind(('localhost', port))
+                # Return the first available port
+                return port
+            except OSError:
+                # This port is already in use, continue to check the next
+                continue
+        # All ports in range are in use, raise an exception
+        raise IOError("Unable to find an available port to start the server.")
+
+
+def start_server(): 
+    try:
+        port = find_available_port()  # Search for available port
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind(('localhost', port))
+        server_socket.listen(5)
+        print(f"Server started at localhost/{port}")
+
+        demo.queue(
+            concurrency_count=gradio_interface_options.get("concurrency_count", 5),
+        ).launch(**gradio_interface_options)
+    
+    except IOError as ex:
+        print(ex)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
